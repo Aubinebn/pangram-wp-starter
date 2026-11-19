@@ -3,10 +3,15 @@ import tailwindcss from '@tailwindcss/vite';
 import laravel from 'laravel-vite-plugin'
 import { wordpressPlugin, wordpressThemeJson } from '@roots/vite-plugin';
 
-// Set APP_URL if it doesn't exist for Laravel Vite plugin
-if (! process.env.APP_URL) {
-  process.env.APP_URL = 'http://example.test';
-}
+// Charge le .env dans process.env (ignoré si le fichier n'existe pas)
+try { process.loadEnvFile('.env'); } catch {}
+
+// URL du site pour Laravel Vite plugin : .env > DDEV (défini dans le conteneur web) > valeur par défaut
+const ddevUrl = process.env.DDEV_PRIMARY_URL;
+process.env.APP_URL ??= ddevUrl ?? 'http://example.test';
+
+// Port du serveur de dev (doit correspondre à web_extra_exposed_ports dans .ddev/config.yaml)
+const vitePort = 5173;
 
 export default defineConfig({
   base: '/app/themes/your-theme-name/public/build/',
@@ -42,4 +47,13 @@ export default defineConfig({
       '@images': '/resources/images',
     },
   },
+
+  // Sous DDEV : écoute hors du conteneur et expose le serveur via le routeur DDEV
+  server: ddevUrl ? {
+    host: '0.0.0.0',
+    port: vitePort,
+    strictPort: true,
+    origin: `${ddevUrl}:${vitePort}`,
+    cors: { origin: ddevUrl },
+  } : undefined,
 })
