@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+## Description: Génère de nouvelles clés et salts WordPress dans le fichier .env (même format que https://roots.io/salts.html)
+## Usage: salts
+## Example: "ddev salts"
+
+set -euo pipefail
+
+cd /var/www/html
+
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "Fichier .env créé à partir de .env.example."
+fi
+
+php -r '
+$keys = [
+    "AUTH_KEY", "SECURE_AUTH_KEY", "LOGGED_IN_KEY", "NONCE_KEY",
+    "AUTH_SALT", "SECURE_AUTH_SALT", "LOGGED_IN_SALT", "NONCE_SALT",
+];
+
+// Caractères autorisés : sans apostrophe ni antislash, pour rester valides entre quotes simples dans le .env
+$chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#%^&*()-_[]{}<>~+=,.;:/?|";
+$max = strlen($chars) - 1;
+
+$env = file_get_contents(".env");
+
+foreach ($keys as $key) {
+    $value = "";
+    for ($i = 0; $i < 64; $i++) {
+        $value .= $chars[random_int(0, $max)];
+    }
+    $line = $key . "=\x27" . $value . "\x27";
+
+    $count = 0;
+    $env = preg_replace_callback(
+        "/^" . $key . "=.*$/m",
+        fn () => $line,
+        $env,
+        1,
+        $count
+    );
+
+    if ($count === 0) {
+        $env = rtrim($env, "\n") . "\n" . $line . "\n";
+    }
+}
+
+file_put_contents(".env", $env);
+'
+
+echo "Clés et salts régénérés dans .env."
+echo "Les sessions en cours sont invalidées : reconnectez-vous à l'admin."

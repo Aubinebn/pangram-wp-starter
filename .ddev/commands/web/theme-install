@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+## Description: Installe les dépendances du thème Sage (composer install, npm install) et compile les assets (npm run build)
+## Usage: theme-install <nom-du-theme>
+## Example: "ddev theme-install mon-theme"
+
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "Usage : ddev theme-install <nom-du-theme>" >&2
+  exit 1
+fi
+
+THEME="$1"
+THEME_DIR="/var/www/html/web/app/themes/$THEME"
+
+if [ ! -d "$THEME_DIR" ]; then
+  echo "Le thème '$THEME' n'existe pas dans web/app/themes." >&2
+  exit 1
+fi
+
+cd "$THEME_DIR"
+
+# Vérifie que le chemin "base" de Vite correspond au nom du dossier du thème
+if [ -f vite.config.js ] && ! grep -q "/app/themes/$THEME/public/build/" vite.config.js; then
+  echo "Attention : dans vite.config.js, 'base' ne pointe pas vers /app/themes/$THEME/public/build/."
+  echo "Les assets compilés risquent de ne pas se charger. Corrigez 'base' puis relancez la commande."
+  echo
+fi
+
+echo "==> composer install"
+composer install
+
+echo "==> npm install"
+npm install
+
+echo "==> npm run build"
+npm run build
+
+echo
+echo "Thème '$THEME' prêt. Pour l'activer : ddev wp theme activate $THEME"
